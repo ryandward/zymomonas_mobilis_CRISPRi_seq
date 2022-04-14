@@ -228,14 +228,8 @@ median_melted_results[, medLFC := median_melted_results[i = type == "control",
 																																					 j  = .(adj_medLFC = medLFC - ctrl_medLFC),
 																																					 by = .EACHI]$adj_medLFC]
 
-liquid_results_LFC <-
-	data.table::dcast(median_melted_results,
-										locus_tag + gene_name + type  ~ condition ,
-										value.var = "medLFC")
-liquid_results_FDR <-
-	data.table::dcast(median_melted_results,
-										locus_tag + gene_name + type  ~ condition ,
-										value.var = "FDR")
+liquid_results_LFC <- data.table::dcast(melted_results, locus_tag + gene_name + type + spacer ~ condition , value.var = "LFC")
+liquid_results_FDR <- data.table::dcast(melted_results, locus_tag + gene_name + type + spacer ~ condition , value.var = "FDR")
 
-fwrite(liquid_results_LFC, "liquid_results_LFC.tsv.gz", sep = "\t")
-fwrite(liquid_results_FDR, "liquid_results_FDR.tsv.gz", sep = "\t")
+fwrite(liquid_results_LFC, "liquid_results_LFC.tsv", sep = "\t")
+fwrite(liquid_results_FDR, "liquid_results_FDR.tsv", sep = "\t")

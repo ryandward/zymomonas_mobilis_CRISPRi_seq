@@ -83,8 +83,10 @@ zmo_y <- DGEList(counts = zmo_grid_matrix,
 								 group = zmo_group,
 								 genes = row.names(zmo_grid_matrix))
 
-zmo_keep <- filterByExpr(zmo_y,
-												 zmo_permut)
+zmo_keep <- filterByExpr(
+	y = zmo_y, 
+	design = zmo_permut,
+	group = zmo_group)
 
 zmo_y <- zmo_y[zmo_keep, , keep.lib.sizes = FALSE]
 zmo_y <- calcNormFactors(zmo_y)

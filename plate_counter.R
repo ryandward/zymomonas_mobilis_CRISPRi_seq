@@ -11,17 +11,17 @@ zmo_bed <- fread("CP023715.1.bed",
 								 							"coding",
 								 							"completeness"))
 
-zmo1 <- fread("ZM1_run1_summary.tsv",
+zmo1 <- fread("ZM1_run1_summary.tsv.gz",
 							col.names = c("spacer",
 														"count",
 														"condition"))
 
-zmo2 <- fread("ZM1_run2_summary.tsv",
+zmo2 <- fread("ZM1_run2_summary.tsv.gz",
 							col.names = c("spacer",
 														"count",
 														"condition"))
 
-zmo3 <- fread("ZM2_run_summary.tsv",
+zmo3 <- fread("ZM2_run_summary.tsv.gz",
 							col.names = c("spacer",
 														"count",
 														"condition"))
@@ -29,9 +29,9 @@ zmo3 <- fread("ZM2_run_summary.tsv",
 zmo <- rbind(zmo1, zmo2, zmo3)[, .(count = sum(count)), 
 															 by = .(spacer, condition)]
 
-zmo_key <- fread("zmo_key.tsv")
+zmo_key <- fread("zmo_key.tsv.gz")
 
-zmo_design <- fread("ZMO1_experimental_design_comprehensive.tsv", 
+zmo_design <- fread("ZMO1_experimental_design_comprehensive.tsv.gz", 
 										na.strings = c("#N/A"))
 
 # define the experimental design space to only take into consideration "plates"
@@ -201,5 +201,5 @@ median_melted_results[
 plate_results_LFC <- data.table::dcast(median_melted_results, locus_tag + gene_name + type  ~ condition , value.var = "medLFC")
 plate_results_FDR <- data.table::dcast(median_melted_results, locus_tag + gene_name + type  ~ condition , value.var = "FDR")
 
-fwrite(plate_results_LFC, "plate_results_LFC.tsv", sep = "\t")
-fwrite(plate_results_FDR, "plate_results_FDR.tsv", sep = "\t")
+fwrite(plate_results_LFC, "plate_results_LFC.tsv.gz", sep = "\t")
+fwrite(plate_results_FDR, "plate_results_FDR.tsv.gz", sep = "\t")

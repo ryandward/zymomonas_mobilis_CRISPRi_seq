@@ -14,7 +14,7 @@ if (!exists("zmo_min_outlier")) {zmo_min_outlier = 0}
 
 if (!exists("zmo_bed")) {
 	
-	zmo_bed <- fread("/home/ryandward/zmo_sgrna_analysis/CP023715.1.bed",
+	zmo_bed <- fread("CP023715.1.bed",
 									 col.names = c("chromosome",
 									 							"left",
 									 							"right",
@@ -27,17 +27,17 @@ if (!exists("zmo_bed")) {
 
 if (!exists("zmo")) {
 	
-	zmo1 <- fread("/home/ryandward/zmo_sgrna_analysis/ZM1_run1_summary.tsv",
+	zmo1 <- fread("ZM1_run1_summary.tsv.gz",
 								col.names = c("spacer",
 															"count",
 															"condition"))
 	
-	zmo2 <- fread("/home/ryandward/zmo_sgrna_analysis/ZM1_run2_summary.tsv",
+	zmo2 <- fread("ZM1_run2_summary.tsv.gz",
 								col.names = c("spacer",
 															"count",
 															"condition"))
 	
-	zmo3 <- fread("/home/ryandward/zmo_sgrna_analysis/ZM2_run_summary.tsv",
+	zmo3 <- fread("ZM2_run_summary.tsv.gz",
 								col.names = c("spacer",
 															"count",
 															"condition"))
@@ -52,13 +52,13 @@ if (!exists("zmo")) {
 
 # if (!exists("zmo_dictionary")) {
 #
-# 	zmo_dictionary <- fread("/home/ryandward/sgrna_analysis/Orthos/zmou_dictionary.tsv")
+# 	zmo_dictionary <- fread("/home/ryandward/sgrna_analysis/Orthos/zmou_dictionary.tsv.gz")
 #
 # }
 
 if (!exists("zmo_key")) {
 	
-	zmo_key <- fread("/home/ryandward/zmo_sgrna_analysis/Z._mobilis_CRISPRi_library_annotations.txt")
+	zmo_key <- fread("Z._mobilis_CRISPRi_library_annotations.txt")
 	
 	zmo_key <- unique(zmo_key)
 	
@@ -70,7 +70,7 @@ if (!exists("zmo_key")) {
 	
 }
 
-zmo_design <- fread("/home/ryandward/zmo_sgrna_analysis/ZMO1_experimental_design.tsv", na.strings = c("#N/A"))
+zmo_design <- fread("ZMO1_experimental_design.tsv.gz", na.strings = c("#N/A"))
 
 zmo <- zmo[condition %in% zmo_design$condition]
 
@@ -196,4 +196,4 @@ gene_level_results[
 
 liquid_results <- data.table::dcast(gene_level_results, locus_tag + gene_name + type + FDR ~ condition , value.var = "medLFC")
 
-fwrite(liquid_results, "liquid_results.tsv", sep = "\t")
+fwrite(liquid_results, "liquid_results.tsv.gz", sep = "\t")

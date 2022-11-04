@@ -1,0 +1,74 @@
+go to ~/RCi_redo
+
+# map promoters, piping maps into awk to decide which match has the most k-mers, unfortunately not built in
+# this has to be done, explicitly because the max k-mer length usable in seal.sh is 31, but the reads are 98
+###################
+
+for i in *R1*gz; do
+echo seal.sh overwrite=t in=$i k=31 mm=f ambiguous=toss outm=stdout.fa hdist=0 trd=t rename fbm int=f ref=promoters.fasta \| awk \''$0~">"'\' \| sed \''s/>//g'\' \|  awk \''{winner = "Unknown"; score = 0; for (i=2; i<=NF; i++) {split ($i, parts, "="); if(parts[2]>score) {score=parts[2];winner=parts[1]}} print $1, winner; delete parts}'\' \> ${i%%_R1_001.fastq.gz}.promoters.tsv
+done > map_promoters.sh;
+
+cat map_promoters.sh | sh
+
+# map promoters, piping maps into awk to decide which match has the most k-mers
+# use the same strategy as promoters, even though best matches should work out of the box
+# this is because the k-mers are 20 in length, which is less than 31 -- the maximum length of seal.sh
+###################
+
+for i in *R3*gz; do
+echo seal.sh overwrite=t in=$i k=20 mm=f ambiguous=toss outm=stdout.fa hdist=0 trd=t rename fbm int=f ref=oligo_guides.fasta \| awk \''$0~">"'\' \| sed \''s/>//g'\' \|  awk \''{winner = "Unknown"; score = 0; for (i=2; i<=NF; i++) {split ($i, parts, "="); if(parts[2]>score) {score=parts[2];winner=parts[1]}} print $1, winner; delete parts}'\' \> ${i%%_R3_001.fastq.gz}.guides.tsv
+done > map_guides.sh;
+
+cat map_guides.sh | sh
+
+# just throw barcodes into a file
+####################
+
+for i in *R2*gz; do 
+zcat $i | awk 'BEGIN{FS = " "; OFS = " ";} FNR%4==1 {heading = $1; getline; print heading, $0}' | sed 's/@//g' > ${i%%_R2_001.fastq.gz}.barcodes.tsv;
+done;
+
+# compile lanes together
+###################
+
+cat Undetermined_S0_L001.barcodes.tsv Undetermined_S0_L002.barcodes.tsv > barcodes.tsv
+cat Undetermined_S0_L001.guides.tsv Undetermined_S0_L002.guides.tsv > guides.tsv
+cat Undetermined_S0_L001.promoters.tsv Undetermined_S0_L002.promoters.tsv > promoters.tsv
+
+# create an overflow directory
+mkdir tmp
+
+# sort
+LANG=en_EN sort -k 1,1 barcodes.tsv -o barcodes.tsv --parallel=12 -T tmp
+LANG=en_EN sort -k 1,1 guides.tsv -o guides.tsv --parallel=12 -T tmp
+LANG=en_EN sort -k 1,1 promoters.tsv -o promoters.tsv --parallel=12 -T tmp 
+
+# join
+LANG=en_EN join promoters.tsv guides.tsv | LANG=en_EN join - barcodes.tsv | awk 'BEGIN{FS = " "} {print $2, $3, $4}' > joined.tsv
+ 
+# sort joined 
+LANG=en_EN sort -k 1,1 -k 2,2 -k 3,3 joined.tsv -o joined.tsv --parallel=12 -T /home/ryandward/R/RCi_redo/tmp
+
+# count joined sorted
+uniq -c joined.tsv | awk 'BEGIN{FS = " "}{print $2, $3, $4, $1}' > joined.counts.tsv
+
+# zip
+pigz --best joined.counts.tsv
+
+# sort by barcode
+zcat joined.counts.tsv.gz | LANG=en_EN sort -k 3,3 -k 4,4nr -k 1,1 -k 2,2 --parallel=12 -T tmp -o joined.counts.barcode_sort.tsv
+
+# find total number of counts per barcode
+cat joined.counts.barcode_sort.tsv | awk '{count[$3] += $4} END {for (i in count) {print i, count[i]} }' | LANG=en_EN sort -k 1,1 > barcodes_overall.count.tsv
+
+# join this onto the file that has all barcode + giude + promoter combos
+LANG=en_EN join joined.counts.barcode_sort.tsv barcodes_overall.count.tsv -13 -21 | awk 'BEGIN {FS = " "; OFS = "\t"} {print $1, $2, $3, $4, $5}' > barcode_family.counts.tsv
+
+# find how many times each barcode occurs individually
+awk '{print $1}' barcode_family.counts.tsv | uniq -c | awk 'BEGIN {FS = " "; OFS = "\t"} {print $2, $1}' > barcode_occurrences.tsv
+
+# join 
+LANG=en_EN join barcode_family.counts.tsv barcode_occurrences.tsv -11 -21 | awk 'BEGIN {FS = " "; OFS = "\t"} {print $1, $2, $3, $4, $5, $6}' > barcode_family.counts.complete.tsv
+
+# find winners with over 90% of the representation belonging to the combo and seen 10 or more times
+awk '$4/$5 > 0.9 && $4 >= 5' barcode_family.counts.complete.tsv> barcode.winners.tsv

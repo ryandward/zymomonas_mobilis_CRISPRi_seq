@@ -13,7 +13,8 @@ p_load(
 	Rtsne,
 	pracma,
 	colourpicker,
-	RColorBrewer
+	RColorBrewer,
+	ggalin
 )
 
 zmo_bed <- fread(

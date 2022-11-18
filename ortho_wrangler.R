@@ -22,7 +22,7 @@ orthos <- melt(
 	id.vars = c("HOG", "OG", "Gene Tree Parent Clade"), 
 	variable.name = "genome", 
 	value.name = "orthologs") %>%
-	filter(!genome %like% "vibrioides") %>%
+	filter(!genome == "Caulobacter_vibrioides") %>%
 	mutate(orthologs = strsplit(as.character(orthologs), ", ")) %>% 
 	unnest(cols = "orthologs") %>%
 	data.table %>%

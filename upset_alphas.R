@@ -83,10 +83,10 @@ single_species <- comb_name(presence.mixed.matrix) %>%
 	as_tibble %>% 
 	mutate(comb_level = lengths(regmatches(value, gregexpr("1", value)))) %>% 
 	mutate(index = 1:nrow(.)) %>% 
-	filter(comb_level == 1) %>% 
+	filter(comb_level == 1 ) %>% 
 	pull(value)
 
-zymo_only <- presence[extract_comb(presence.mixed.matrix, comb_name(presence.mixed.matrix)[231]),]
+zymo_only <- presence[extract_comb(presence.mixed.matrix, comb_name(presence.mixed.matrix)[392]),]
 
 zymo_only_genome <-
 	orthos %>%
@@ -109,7 +109,7 @@ z <- comb_name(presence.mixed.matrix) %>%
 	as_tibble %>% 
 	mutate(comb_level = lengths(regmatches(value, gregexpr("1", value)))) %>% 
 	mutate(index = 1:nrow(.)) %>% 
-	filter(comb_level == 1) %>% filter(comb_level == 1) %>% pull(index)
+	filter(comb_level == 1 | comb_level == 9) %>% pull(index)
 
 p <- UpSet(
 	presence.mixed.matrix[, z], 
@@ -120,3 +120,4 @@ p <- UpSet(
 			height = unit(8, "cm"),
 			add_numbers = T)))
 
+print(p)

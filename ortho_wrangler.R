@@ -21,7 +21,8 @@ orthos <- melt(
 	orthos, 
 	id.vars = c("HOG", "OG", "Gene Tree Parent Clade"), 
 	variable.name = "genome", 
-	value.name = "orthologs") %>% 
+	value.name = "orthologs") %>%
+	filter(!genome %like% "vibrioides") %>%
 	mutate(orthologs = strsplit(as.character(orthologs), ", ")) %>% 
 	unnest(cols = "orthologs") %>%
 	data.table %>%
@@ -37,6 +38,17 @@ orthos_summary <- orthos_summary %>% mutate(genome = paste(Genus, Rest))
 orthos_wider <- orthos_summary %>% 
 	pivot_wider(id_cols = c(genome, Genus), names_from = HOG, values_from = N, values_fill = 0)
 
+# alpha_orthos_wider %>% 
+# 	pivot_longer(
+# 		!c(Genus, genome), 
+# 		values_to = "N", 
+# 		names_to = "HOG") %>% 
+# 	filter(N > 0) %>%
+# 	pivot_wider(
+# 		id_cols = c(genome, Genus), 
+# 		names_from = HOG, 
+# 		values_from = N, 
+# 		values_fill = 0)
 
 alpha_orthos_wider <- 	
 	orthos_wider %>% 
@@ -46,7 +58,22 @@ alpha_orthos_wider <-
 		"Agrobacterium",
 		"Brevundimonas",
 		"Sphingomonas",
-		"Bradyrhizobium"))
+		"Rhodobacter",
+		"Bradyrhizobium",
+		"Rhodopseudomonas",
+		"Novosphingobium"))
+
+alpha_orthos_wider <- alpha_orthos_wider %>% 
+	pivot_longer(
+		!c(Genus, genome), 
+		values_to = "N", 
+		names_to = "HOG") %>% 
+	filter(N > 0) %>%
+	mutate(N = ifelse(N > 5, 5, N)) %>% pivot_wider(
+		id_cols = c(genome, Genus), 
+		names_from = HOG, 
+		values_from = N, 
+		values_fill = 0)
 	
 
 d <- 
@@ -90,7 +117,7 @@ single_copy_essentials <- essentials %>%
 	inner_join(orthos) %>% 
 	filter(genome == "Zymomonas_mobilis")
 
-################################################################################
+############################################################################
 # 
 # median_melted_results %>% 
 # 	filter(
@@ -109,36 +136,37 @@ single_copy_essentials <- essentials %>%
 # 	ggplot(aes(x = medLFC)) + geom_density() + doc_theme
 
 
-
-median_melted_results_all <-
-	median_melted_results %>% 
-	filter(
-		type == "perfect",
-		condition %in% c(
-			"aerobic_T3 - aerobic_T0", 
-			"anaerobic_T3 - anaerobic_T0")) %>%
-	mutate(set = "All")
-
-median_melted_results_orthoparsed <-
-	median_melted_results %>% 
-	inner_join(single_copy_essentials) %>% 
-	filter(
-		type == "perfect",
-		condition %in% c(
-			"aerobic_T3 - aerobic_T0", 
-			"anaerobic_T3 - anaerobic_T0")) %>%
-	mutate(set = "Orthos = 6/6 Alphas")
-
-setwise_results <- 
-	median_melted_results_orthoparsed %>% rbind(median_melted_results_all, fill = T)
-
-
-setwise_results %>%
-	arrange(medLFC) %>%
-	ggplot(aes(x = medLFC, y = FDR)) + 
-	geom_point(aes(colour = condition), alpha = 0.5) + 
-	doc_theme + 
-	scale_y_continuous(
-		trans = scales::reverse_trans() %of% scales::log10_trans()) +
-	facet_grid(facets = c("condition", "set"))
+# 
+# median_melted_results_all <-
+# 	median_melted_results %>% 
+# 	filter(
+# 		type == "perfect",
+# 		condition %in% c(
+# 			"aerobic_T3 - aerobic_T0", 
+# 			"anaerobic_T3 - anaerobic_T0")) %>%
+# 	mutate(set = "All")
+# 
+# median_melted_results_orthoparsed <-
+# 	median_melted_results %>% 
+# 	inner_join(single_copy_essentials) %>% 
+# 	filter(
+# 		type == "perfect",
+# 		condition %in% c(
+# 			"aerobic_T3 - aerobic_T0", 
+# 			"anaerobic_T3 - anaerobic_T0")) %>%
+# 	mutate(set = "Orthos = 6/6 Alphas")
+# 
+# setwise_results <- 
+# 	median_melted_results_orthoparsed %>% 
+# 	rbind(median_melted_results_all, fill = T)
+# 
+# 
+# setwise_results %>%
+# 	arrange(medLFC) %>%
+# 	ggplot(aes(x = medLFC, y = FDR)) + 
+# 	geom_point(aes(colour = condition), alpha = 0.5) + 
+# 	doc_theme + 
+# 	scale_y_continuous(
+# 		trans = scales::reverse_trans() %of% scales::log10_trans()) +
+# 	facet_grid(facets = c("condition", "set"))
 

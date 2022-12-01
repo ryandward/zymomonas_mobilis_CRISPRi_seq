@@ -114,10 +114,18 @@ z <- comb_name(presence.mixed.matrix) %>%
 p <- UpSet(
 	presence.mixed.matrix[, z], 
 	top_annotation = HeatmapAnnotation(
-		"Intersection" = anno_barplot(
+		"Unique Genes" = anno_barplot(
 			comb_size(presence.mixed.matrix[, z]),
 			border = FALSE, 
-			height = unit(8, "cm"),
+			height = unit(10, "cm"),
+			add_numbers = T),
+		annotation_name_side = "left"),
+	right_annotation = rowAnnotation(
+		"Genome Size" = anno_barplot(
+			set_size(presence.mixed.matrix[, z]),
+			border = FALSE, 
+			width = unit(10, "cm"),
 			add_numbers = T)))
 
 print(p)
+

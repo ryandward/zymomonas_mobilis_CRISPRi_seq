@@ -13,8 +13,10 @@ p_load(
 	Rtsne,
 	pracma,
 	colourpicker,
-	RColorBrewer
-)
+	RColorBrewer)
+
+p_load_current_gh("shabbychef/ggallin")
+
 
 zmo_bed <- fread(
 	"CP023715.1.bed",

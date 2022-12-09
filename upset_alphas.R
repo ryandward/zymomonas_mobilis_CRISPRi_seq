@@ -1,6 +1,7 @@
 library(pacman)
 
-p_load(data.table, viridis, grid, ComplexHeatmap, tidyverse)
+p_load(data.table, viridis, grid, tidyverse)
+p_load_current_gh("jokergoo/ComplexHeatmap")
 
 digitsum <- function(x) sum(floor(x / 10^(0:(nchar(x) - 1))) %% 10)
 

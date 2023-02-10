@@ -5,6 +5,8 @@ p_load_current_gh("jokergoo/ComplexHeatmap")
 
 digitsum <- function(x) sum(floor(x / 10^(0:(nchar(x) - 1))) %% 10)
 
+source("ortho_wrangler.R")
+
 
 
 empty <- alpha_orthos_wider %>% 

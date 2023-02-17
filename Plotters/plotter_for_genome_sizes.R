@@ -32,7 +32,7 @@ library(pacman)
 source("upset_alphas.R")
 
 # Use pacman to load the following packages
-p_load(data.table, tidyverse, broom, modelr, Hmisc)
+p_load(data.table, tidyverse, broom, modelr, Hmisc, conflicted)
 p_load_current_gh("DoseResponse/drcData", "ryandward/drc", "hrbrmstr/hrbrthemes")
 
 # Conflicts

@@ -47,6 +47,13 @@ orthos <- genome_locus_tags %>% full_join(orthos) %>%
 
 orthos[is.na(HOG), HOG := locus_tag]
 
+model_organisms <- c("Escherichia coli BW25113", "Caulobacter crescentus")
+
+genome_order <- c(model_organisms, sort(setdiff(levels(orthos$genome), model_organisms)))
+
+orthos$genome <- factor(orthos$genome, levels = genome_order)
+
+
 orthos_summary <- orthos %>% 
 	group_by(HOG, OG, `Gene Tree Parent Clade`, genus, genome) %>% 
 	summarise(N = n()) 
@@ -77,7 +84,6 @@ alpha_ecoli_orthos_wider <- alpha_ecoli_orthos_wider %>%
 	filter(N > 0) %>% 
 	dcast(genome + genus ~ HOG, value.var = 'N', fill = 0) %>% 
 	as_tibble()
-
 
 d <- 
 	alpha_ecoli_orthos_wider %>%

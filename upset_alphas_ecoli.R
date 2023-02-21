@@ -3,28 +3,24 @@ library(pacman)
 p_load(data.table, viridis, grid, tidyverse)
 p_load_current_gh("jokergoo/ComplexHeatmap")
 
-digitsum <- function(x) sum(floor(x / 10^(0:(nchar(x) - 1))) %% 10)
-
-source("ortho_wrangler.R")
-
-
 alpha_ecoli_empty <- alpha_ecoli_orthos_wider %>% 
 	pivot_longer(
 		!c(genus, genome), 
 		values_to = "N", 
-		names_to = "HOG") %>% mutate(empty_orthogroup = case_when(N == 0 ~ TRUE, 1 == 1 ~ FALSE))
+		names_to = "HOG") %>% 
+	mutate(empty_orthogroup = case_when(N == 0 ~ TRUE, 1 == 1 ~ FALSE))
 
 alpha_ecoli_empty <- alpha_ecoli_empty %>% 
 	pivot_wider(id_cols = HOG, names_from = genome, values_from = empty_orthogroup)
 
-alpha_ecoli_mixed.matrix <- alpha_ecoli_empty %>%
+alpha_ecoli_empty_combomat <- alpha_ecoli_empty %>%
 	make_comb_mat
 
-p <- UpSet(
-	alpha_ecoli_mixed.matrix, 
+UpSet(
+	alpha_ecoli_empty_combomat, 
 	top_annotation = HeatmapAnnotation(
 		"Intersection" = anno_barplot(
-			comb_size(alpha_ecoli_mixed.matrix),
+			comb_size(alpha_ecoli_empty_combomat),
 			border = FALSE, 
 			height = unit(8, "cm"),
 			add_numbers = T)))
@@ -43,7 +39,10 @@ alpha_ecoli_orthogroups_per_genome <- alpha_ecoli_orthos_wider %>%
 
 
 # hogs that are never missing in alphas
-never_empty <- empty[extract_comb(mixed.matrix, comb_name(mixed.matrix)[length(comb_name(mixed.matrix))]), ]
+never_empty_alpha_ecoli <- alpha_ecoli_empty[
+	extract_comb(
+		alpha_ecoli_empty_combomat, 
+		comb_name(alpha_ecoli_empty_combomat)[length(comb_name(alpha_ecoli_empty_combomat))]), ]
 
 # orthos that are never missing in alphas
 core_alpha_ecoli_genome <- 

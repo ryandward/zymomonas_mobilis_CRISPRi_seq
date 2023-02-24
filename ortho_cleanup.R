@@ -43,11 +43,14 @@ orthos <- genome_locus_tags %>% full_join(orthos) %>%
 	filter(!genome == "Caulobacter_vibrioides") %>%
 	separate(genome, c("genus", "species", "rest"), remove = FALSE, extra = "merge") %>%
 	mutate(genome = paste(genus, species, rest)) %>% 
-	mutate(genome = gsub(" NA", "", genome))
+	mutate(genome = gsub(" NA", "", genome)) %>% 
+	data.table
 
 orthos[is.na(HOG), HOG := locus_tag]
 
 model_organisms <- c("Escherichia coli BW25113", "Caulobacter crescentus")
+
+orthos$genome <- factor(orthos$genome)
 
 genome_order <- c(model_organisms, sort(setdiff(levels(orthos$genome), model_organisms)))
 
@@ -101,4 +104,6 @@ d_scale %>% ggplot(aes(x = V1, y = V2)) +
 	geom_point(aes(fill = genus), size = 5, shape = 21, alpha = 0.5) +
 	geom_text_repel(aes(label = genome)) +
 	doc_theme
+
+
 

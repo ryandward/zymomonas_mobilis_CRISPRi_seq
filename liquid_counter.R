@@ -1,6 +1,7 @@
 require('pacman')
 
 p_load(
+	tidyverse,
 	data.table,
 	scales,
 	edgeR,

@@ -1,8 +1,8 @@
-library(data.table)
-library(tidyverse)
-library(ggrepel)
-library(hrbrthemes)
-library(ggallin)
+library(pacman)
+
+p_load(data.table, tidyverse, ggrepel, hrbrthemes, ggallin, RColorBrewer, viridis, grid)
+
+p_load_current_gh("jokergoo/ComplexHeatmap")
 
 doc_theme <- theme_ipsum(
 	base_family = "Arial", 
@@ -36,6 +36,8 @@ orthos <- melt(
 	data.table %>%
 	rename(locus_tag = orthologs)
 
+ecoli_genes <- fread("Escherichia_coli_BW25113.tsv")
+
 ################################################################################
 # parse
 
@@ -62,7 +64,7 @@ orthos_summary <- orthos %>%
 
 orthos_table <- orthos_summary %>% 
 	data.table %>% 
-	data.table::dcast(genome + genus ~ HOG, value.var = "N", fill = 0) %>%
+	dcast(genome + genus ~ HOG, value.var = "N", fill = 0) %>%
 	as_tibble()
 
 alpha_ecoli_orthos_table <- 	
@@ -106,27 +108,24 @@ alpha_ecoli_orthos_table <- alpha_ecoli_orthos_table %>%
 
 ##########################################################################################
 
-p_load(data.table, viridis, grid, tidyverse)
-p_load_current_gh("jokergoo/ComplexHeatmap")
-
-ecoli_genes <- fread("Escherichia_coli_BW25113.tsv")
-
-alpha_ecoli_presence <- alpha_ecoli_orthos_table %>% 
+genomes_presence <- alpha_ecoli_orthos_table %>% 
 	data.table %>% 
 	melt(id.vars = c("genus", "genome"), variable.name = "HOG", value.name = "N") %>% 
 	mutate(present_orthogroup = case_when(N > 0 ~ TRUE, N == 0 ~ FALSE)) %>% 
 	dcast(HOG ~ genome, value.var = "present_orthogroup")
 
-alpha_ecoli_presence_combomat <- alpha_ecoli_presence %>% make_comb_mat
+genomes_presence_combo_distinct <- genomes_presence %>% make_comb_mat(mode = "distinct")
+genomes_presence_combo_intersect <- genomes_presence %>% make_comb_mat(mode = "intersect")
 
 ##########################################################################################
-# This function takes a list of genome names and returns a concatenated string 
-# representing the presence or absence of each genome in the list. The string is 
-# constructed by checking each genome in the input list against a reference 
-# list of all genomes, and setting a "1" if the genome is present, or "0" if it 
-# is absent. Reference list is obtained from the matrix: "alpha_ecoli_presence_combomat"
+# This function takes a list of genome names and returns a concatenated string
+# representing the presence or absence of each genome in the list. The string is
+# constructed by checking each genome in the input list against a reference list
+# of all genomes, and setting a "1" if the genome is present, or "0" if it is
+# absent. Reference list is obtained from the matrix:
+# "genomes_presence_combo_distinct"
 
-genome_presence <- function(genomes, all_genomes) {
+extract_idx <- function(genomes, all_genomes) {
 	presence_vector <- rep(0, length(all_genomes))
 	for (genome in genomes) {
 		idx <- match(genome, all_genomes)
@@ -137,32 +136,31 @@ genome_presence <- function(genomes, all_genomes) {
 	return(paste(presence_vector, collapse = ""))
 }
 
-idx_to_hog <- function(ortho_table, idx, combo_matrix) {
-	return(alpha_ecoli_presence[extract_comb(alpha_ecoli_presence_combomat, idx), ] %>% pull(HOG))
+lookup_idx <- function(table, idx, combo) {
+	return(table[extract_comb(combo, idx), ] %>% pull(HOG))
 }
 
-# genome_presence("Zymomonas mobilis", alpha_ecoli_presence_combomat %>% rownames)
-# genome_presence(c("Zymomonas mobilis", "Escherichia coli BW25113"), alpha_ecoli_presence_combomat %>% rownames)
+##########################################################################################
 
-all_genomes <- alpha_ecoli_presence_combomat %>% rownames
+all_genomes <- genomes_presence_combo_distinct %>% rownames
 
 ##########################################################################################
 
 #All Alphas + E. coli: https://version-11-5.string-db.org/cgi/network?networkId=bjUeidx5OYaE
-all_present <- genome_presence(all_genomes, all_genomes)
+all_present_idx <- extract_idx(all_genomes, all_genomes)
 
-all_present <- alpha_ecoli_presence[extract_comb(
-	alpha_ecoli_presence_combomat, all_present_idx), ]
+all_present <- genomes_presence[extract_comb(
+	genomes_presence_combo_distinct, all_present_idx), ]
 
 #All Alphas - E. coli: https://version-11-5.string-db.org/cgi/network?networkId=bzNJgxu0NyeQ 
-all_alphas_only_idx <- genome_presence(all_genomes[!(all_genomes %in% ("Escherichia coli BW25113"))], all_genomes)
+all_alphas_only_idx <- extract_idx(all_genomes[!(all_genomes %in% ("Escherichia coli BW25113"))], all_genomes)
 
-all_alphas_only <- alpha_ecoli_presence[extract_comb(
-	alpha_ecoli_presence_combomat, all_alphas_only_idx), ]
+all_alphas_only <- genomes_presence[extract_comb(
+	genomes_presence_combo_distinct, all_alphas_only_idx), ]
 
 #Zymomonas mobilis only - https://version-11-5.string-db.org/cgi/network?networkId=bDpAcDlAAZj
-Zm_only <- alpha_ecoli_presence[extract_comb(
-	alpha_ecoli_presence_combomat, genome_presence("Zymomonas mobilis", all_genomes)), ]
+Zm_only <- genomes_presence[extract_comb(
+	genomes_presence_combo_distinct, extract_idx("Zymomonas mobilis", all_genomes)), ]
 
 ##########################################################################################
 # create a table with info about each genome
@@ -174,30 +172,34 @@ for (i in all_genomes) {
 		filter(genome == i) %>% 
 		select(genome, genus, locus_tag) %>% 
 		mutate(set = "All genes") %>%
-		data.table %>% rbind(genome_sets)
+		data.table %>% 
+		rbind(genome_sets)
 
 	genome_sets <- all_present %>% 
 		select(HOG) %>% 
 		inner_join(orthos %>% filter(genome == i), multiple = "all") %>% 
 		select(genome, genus, locus_tag) %>% 
 		mutate(set = "Present in all alphas and E. coli") %>% 
-		data.table %>% rbind(genome_sets)
+		data.table %>% 
+		rbind(genome_sets)
 	
 	genome_sets <- all_alphas_only %>% 
 		select(HOG) %>% 
 		inner_join(orthos %>% filter(genome == i), multiple = "all") %>% 
 		select(genome, genus, locus_tag) %>% 
 		mutate(set = "Common only to all alphas") %>% 
-		data.table %>% rbind(genome_sets)
+		data.table %>% 
+		rbind(genome_sets)
 	
-	genome_sets <-	alpha_ecoli_presence[extract_comb(
-		alpha_ecoli_presence_combomat, 
-		genome_presence(i, all_genomes)), ] %>% 		
+	genome_sets <-	genomes_presence[extract_comb(
+		genomes_presence_combo_distinct, 
+		extract_idx(i, all_genomes)), ] %>% 		
 		select(HOG) %>%
 		inner_join(orthos %>% filter(genome == i), multiple = "all") %>% 
 		select(genome, genus, locus_tag) %>%
 		mutate(set = "Unique to genome") %>% 
-		data.table %>% rbind(genome_sets)
+		data.table %>% 
+		rbind(genome_sets)
 }
 
 genome_sets$genome <- factor(genome_sets$genome, levels = genome_order)
@@ -227,39 +229,84 @@ genome_sets_stats_plot <- genome_sets_stats %>%
 print(genome_sets_stats_plot)
 
 ##########################################################################################
-# Hard questions
+# Hard questions, these are answered using "intersect" combo matrices.
+
+# Zymomonas only, again
+p_Zmo_idx <- extract_idx("Zymomonas mobilis", all_genomes)
+
+p_Zmo <- lookup_idx(
+	genomes_presence, 
+	p_Zmo_idx, 
+	genomes_presence_combo_intersect) %>% 
+	droplevels %>% 
+	data.table(HOG = .) %>% 
+	arrange(HOG)
+
+# E. coli, plus any others that have orthologs to E. coli genes
+p_Eco_idx <-  extract_idx("Escherichia coli BW25113", all_genomes)
+
+p_Eco <- lookup_idx(
+	genomes_presence, 
+	p_Eco_idx, 
+	genomes_presence_combo_intersect) %>% 
+	droplevels %>% 
+	data.table(HOG = .) %>% 
+	arrange(HOG)
 
 
+# Now we don't care about E. coli. These HOGS are present everywhere in Alphas
+# and may be in E. coli # Generate an index that corresponds to everything m
+# (minus) E. coli
+genomes_m_Eco_idx <- extract_idx(
+	all_genomes[!(all_genomes %in% (c("Escherichia coli BW25113")))], 
+	all_genomes)
 
-# Now we don't care about E. coli. These HOGS are present everywhere in Alphas and may be in E. coli
-## Find index
-alphas_p_ec_idx <- genome_presence(all_genomes, all_genomes)
-alphas_m_ec_idx <- genome_presence(all_genomes[!(all_genomes %in% (c("Escherichia coli BW25113")))], all_genomes)
-
-# Find HOGs pom (plus or minus) E. coli
-alphas_pom_ec <- c(
-	idx_to_hog(alpha_ecoli_presence, alphas_p_ec_idx, alpha_ecoli_presence_combomat), 
-	idx_to_hog(alpha_ecoli_presence, alphas_m_ec_idx, alpha_ecoli_presence_combomat)) %>% 
-	droplevels %>% data.table(HOG = .) %>%
+# genomes_pom_Eco_p_Zmo_m_all <- 
+	
+# Find HOGs pom (plus or minus) E. coli by looking up in the intserect combo
+genomes_pom_Eco <- lookup_idx(
+	genomes_presence, 
+	genomes_m_Eco_idx, 
+	genomes_presence_combo_intersect) %>% 
+	droplevels %>% 
+	data.table(HOG = .) %>% 
 	arrange(HOG)
 
 # Now we don't care about E. coli or Zymomonas
-## Find index
-alphas_m_zm_idx <- genome_presence(all_genomes[!(all_genomes %in% (c("Zymomonas mobilis")))], all_genomes)
-alphas_m_ec_m_ec_idx <- genome_presence(all_genomes[!(all_genomes %in% (c("Escherichia coli BW25113", "Zymomonas mobilis")))], all_genomes)
+# Find index
+genomes_m_Eco_Zmo_idx <- extract_idx(all_genomes[!(all_genomes %in% (c("Escherichia coli BW25113", "Zymomonas mobilis")))], all_genomes)
 
-# Find HOGs pom (plus or minus) E. coli, Zymomonas
-alphas_pom_ec_pom_zm <- c(
-	idx_to_hog(alpha_ecoli_presence, alphas_p_ec_idx, alpha_ecoli_presence_combomat),
-	idx_to_hog(alpha_ecoli_presence, alphas_m_ec_idx, alpha_ecoli_presence_combomat),
-	idx_to_hog(alpha_ecoli_presence, alphas_m_zm_idx, alpha_ecoli_presence_combomat), 
-	idx_to_hog(alpha_ecoli_presence, alphas_m_ec_m_ec_idx, alpha_ecoli_presence_combomat)) %>% 
-	droplevels %>% data.table(HOG = .) %>%
+genomes_pom_Eco_Zmo <- lookup_idx(
+	genomes_presence, 
+	genomes_m_Eco_Zmo_idx, 
+	genomes_presence_combo_intersect) %>% 
+	droplevels %>% 
+	data.table(HOG = .) %>% 
 	arrange(HOG)
 
-# Find the difference and map it onto Caulobacter 
-alphas_pom_ec_m_zm_mapped_cc <- alphas_pom_ec_pom_zm %>% 
-	anti_join(alphas_pom_ec) %>% 
-	inner_join(alpha_ecoli_presence) %>% 
+# Genes that may be in E. coli, but in ALL alphas including Zymomonas
+## on Caulobacter
+## https://version-11-5.string-db.org/cgi/network?networkId=bOEFxWYpUzvy
+genomes_pom_Eco_on_Ccr <- genomes_pom_Eco %>%
+	inner_join(genomes_presence) %>% 
+	inner_join(orthos %>% filter(genome == "Caulobacter crescentus"), multiple = "all") %>% select(locus_tag)
+
+## on Zymomonas
+## https://version-11-5.string-db.org/cgi/network?networkId=bcrrXPZjXBlZ
+genomes_pom_Eco_on_Zmo <- genomes_pom_Eco %>%
+	inner_join(genomes_presence) %>% 
+	inner_join(orthos %>% filter(genome == "Zymomonas mobilis"), multiple = "all") %>% select(locus_tag)
+
+# Genes that may be in E. coli, may be in Zymomonas, but present in all other alphas
+# https://version-11-5.string-db.org/cgi/network?networkId=b1UklJYoaHIx
+genomes_pom_Eco_Zmo_on_Ccr <- genomes_pom_Eco_Zmo %>%
+	inner_join(genomes_presence) %>% 
+	inner_join(orthos %>% filter(genome == "Caulobacter crescentus"), multiple = "all") %>% select(locus_tag)
+
+# Genes that may be in E. coli, not in Zymomonas, but are present in all other alphas
+# https://version-11-5.string-db.org/cgi/network?networkId=buYCYUpvXGzW
+genomes_pom_Eco_m_Zmo_on_Ccr <- genomes_pom_Eco_Zmo %>% 
+	anti_join(genomes_pom_Eco) %>% 
+	inner_join(genomes_presence) %>% 
 	inner_join(orthos %>% filter(genome == "Caulobacter crescentus"), multiple = "all") %>% select(locus_tag)
 

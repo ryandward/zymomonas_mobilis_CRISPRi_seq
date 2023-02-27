@@ -1,6 +1,6 @@
 library(pacman)
 
-p_load(data.table, tidyverse, ggrepel, hrbrthemes, ggallin, RColorBrewer, viridis, grid)
+p_load(data.table, tidyverse, ggrepel, hrbrthemes, ggallin, RColorBrewer, viridis, grid, clipr)
 
 p_load_current_gh("jokergoo/ComplexHeatmap")
 
@@ -30,7 +30,6 @@ orthos <- melt(
 	id.vars = c("HOG", "OG", "Gene Tree Parent Clade"), 
 	variable.name = "genome", 
 	value.name = "orthologs") %>%
-	filter(!genome == "Caulobacter_vibrioides") %>%
 	mutate(orthologs = strsplit(as.character(orthologs), ", ")) %>% 
 	unnest(cols = "orthologs") %>%
 	data.table %>%
@@ -42,7 +41,6 @@ ecoli_genes <- fread("Escherichia_coli_BW25113.tsv")
 # parse
 
 orthos <- genome_locus_tags %>% full_join(orthos) %>%
-	filter(!genome == "Caulobacter_vibrioides") %>%
 	separate(genome, c("genus", "species", "rest"), remove = FALSE, extra = "merge") %>%
 	mutate(genome = paste(genus, species, rest)) %>% 
 	mutate(genome = gsub(" NA", "", genome)) %>% 
@@ -62,6 +60,14 @@ orthos_summary <- orthos %>%
 	group_by(HOG, OG, `Gene Tree Parent Clade`, genus, genome) %>% 
 	summarise(N = n()) 
 
+essential_orthos <- orthos %>% 
+	inner_join(essentials %>% select(locus_tag), by = "locus_tag", multiple = "all") %>% 
+	select(HOG) %>% unique %>% mutate(essential = TRUE)
+
+orthos_summary <- orthos_summary %>% left_join(essential_orthos, multiple = "all") %>% data.table
+
+orthos_summary[is.na(essential), essential := FALSE]
+
 orthos_table <- orthos_summary %>% 
 	data.table %>% 
 	dcast(genome + genus ~ HOG, value.var = "N", fill = 0) %>%
@@ -70,17 +76,18 @@ orthos_table <- orthos_summary %>%
 alpha_ecoli_orthos_table <- 	
 	orthos_table %>% 
 	filter(
-		genome == "Escherichia coli BW25113" |
-		genus %in% c(
-		"Zymomonas",
-		"Caulobacter",
-		"Agrobacterium",
-		"Brevundimonas",
-		"Sphingomonas",
-		"Rhodobacter",
-		"Bradyrhizobium",
-		"Rhodopseudomonas",
-		"Novosphingobium"))
+		genome %in% c(
+			"Escherichia coli BW25113",
+			"Caulobacter crescentus",
+			"Agrobacterium fabrum",
+			"Bradyrhizobium diazoefficiens",
+			"Brevundimonas subvibrioides",
+			"Novosphingobium aromaticivorans",
+			"Rhodobacter sphaeroides",
+			"Rhodopseudomonas palustris",
+			"Sphingomonas wittichii",
+			"Zymomonas mobilis"))
+			
 
 alpha_ecoli_orthos_table <- alpha_ecoli_orthos_table %>% 
 	data.table %>% 
@@ -106,6 +113,11 @@ alpha_ecoli_orthos_table <- alpha_ecoli_orthos_table %>%
 # 	geom_text_repel(aes(label = genome)) +
 # 	doc_theme
 
+
+essential_orthos_summary <- orthos %>% 
+	inner_join(essentials %>% select(locus_tag), by = "locus_tag", multiple = "all") %>% 
+	group_by(genome, HOG) %>% tally(name = "essential_ortho_count")
+
 ##########################################################################################
 
 genomes_presence <- alpha_ecoli_orthos_table %>% 
@@ -116,6 +128,7 @@ genomes_presence <- alpha_ecoli_orthos_table %>%
 
 genomes_presence_combo_distinct <- genomes_presence %>% make_comb_mat(mode = "distinct")
 genomes_presence_combo_intersect <- genomes_presence %>% make_comb_mat(mode = "intersect")
+genomes_presence_combo_union <- genomes_presence %>% make_comb_mat(mode = "union")
 
 ##########################################################################################
 # This function takes a list of genome names and returns a concatenated string
@@ -229,26 +242,46 @@ genome_sets_stats_plot <- genome_sets_stats %>%
 print(genome_sets_stats_plot)
 
 ##########################################################################################
-# Hard questions, these are answered using "intersect" combo matrices.
+# Hard questions, these are answered using "intersect" and "union" combo matrices.
 
-# Zymomonas only, again
-p_Zmo_idx <- extract_idx("Zymomonas mobilis", all_genomes)
+# All genomes
+All_idx <- extract_idx(all_genomes, all_genomes)
 
-p_Zmo <- lookup_idx(
+alphas_eco_shared <- lookup_idx(
 	genomes_presence, 
-	p_Zmo_idx, 
-	genomes_presence_combo_intersect) %>% 
+	All_idx, 
+	genomes_presence_combo_distinct) %>% 
 	droplevels %>% 
 	data.table(HOG = .) %>% 
 	arrange(HOG)
 
-# E. coli, plus any others that have orthologs to E. coli genes
-p_Eco_idx <-  extract_idx("Escherichia coli BW25113", all_genomes)
+# Zymomonas only index
+Zmo_idx <- extract_idx("Zymomonas mobilis", all_genomes)
 
-p_Eco <- lookup_idx(
+Zmo_genome <- lookup_idx(
 	genomes_presence, 
-	p_Eco_idx, 
-	genomes_presence_combo_intersect) %>% 
+	Zmo_idx, 
+	genomes_presence_combo_union) %>% 
+	droplevels %>% 
+	data.table(HOG = .) %>% 
+	arrange(HOG)
+
+Eco_idx <- extract_idx("Escherichia coli BW25113", all_genomes)
+
+Eco_genome <- lookup_idx(
+	genomes_presence, 
+	Eco_idx, 
+	genomes_presence_combo_union) %>% 
+	droplevels %>% 
+	data.table(HOG = .) %>% 
+	arrange(HOG)
+
+Alphas_idx <- extract_idx(all_genomes[!(all_genomes %in% ("Escherichia coli BW25113"))], all_genomes)
+
+Alphas_common_not_Eco <- lookup_idx(
+	genomes_presence, 
+	Alphas_idx, 
+	genomes_presence_combo_distinct) %>% 
 	droplevels %>% 
 	data.table(HOG = .) %>% 
 	arrange(HOG)
@@ -257,56 +290,134 @@ p_Eco <- lookup_idx(
 # Now we don't care about E. coli. These HOGS are present everywhere in Alphas
 # and may be in E. coli # Generate an index that corresponds to everything m
 # (minus) E. coli
-genomes_m_Eco_idx <- extract_idx(
+all_alphas_idx <- extract_idx(
 	all_genomes[!(all_genomes %in% (c("Escherichia coli BW25113")))], 
 	all_genomes)
 
-# genomes_pom_Eco_p_Zmo_m_all <- 
+# alpha_common_p_Zmo_m_all <- 
 	
-# Find HOGs pom (plus or minus) E. coli by looking up in the intserect combo
-genomes_pom_Eco <- lookup_idx(
+# Find HOGs in all alphas, and may be in E. coli
+alpha_common <- lookup_idx(
 	genomes_presence, 
-	genomes_m_Eco_idx, 
+	all_alphas_idx, 
 	genomes_presence_combo_intersect) %>% 
+	droplevels %>% 
+	data.table(HOG = .) %>% 
+	arrange(HOG)
+
+alpha_union <- lookup_idx(
+	genomes_presence, 
+	all_alphas_idx, 
+	genomes_presence_combo_union) %>% 
 	droplevels %>% 
 	data.table(HOG = .) %>% 
 	arrange(HOG)
 
 # Now we don't care about E. coli or Zymomonas
 # Find index
-genomes_m_Eco_Zmo_idx <- extract_idx(all_genomes[!(all_genomes %in% (c("Escherichia coli BW25113", "Zymomonas mobilis")))], all_genomes)
+alpha_not_Zmo_idx <- extract_idx(all_genomes[!(all_genomes %in% (c("Escherichia coli BW25113", "Zymomonas mobilis")))], all_genomes)
 
-genomes_pom_Eco_Zmo <- lookup_idx(
+alpha_common_maybe_Zmo <- lookup_idx(
 	genomes_presence, 
-	genomes_m_Eco_Zmo_idx, 
+	alpha_not_Zmo_idx, 
 	genomes_presence_combo_intersect) %>% 
 	droplevels %>% 
 	data.table(HOG = .) %>% 
 	arrange(HOG)
 
-# Genes that may be in E. coli, but in ALL alphas including Zymomonas
+alpha_union_maybe_Zmo <- lookup_idx(
+	genomes_presence, 
+	alpha_not_Zmo_idx, 
+	genomes_presence_combo_union) %>% 
+	droplevels %>% 
+	data.table(HOG = .) %>% 
+	arrange(HOG)
+
+alpha_not_Zmo_not_Eco <- lookup_idx(
+	genomes_presence, 
+	alpha_not_Zmo_idx, 
+	genomes_presence_combo_distinct) %>% 
+	droplevels %>% 
+	data.table(HOG = .) %>% 
+	arrange(HOG)
+
+### Genes shared by all Alphas and E. coli
+## on E. coli
+# https://version-11-5.string-db.org/cgi/network?networkId=bml1LlWvnUED
+alphas_eco_shared %>% inner_join(orthos %>% filter(genome == "Escherichia coli BW25113"), multiple = "all") %>%
+	select(locus_tag) %>% inner_join(ecoli_genes) %>% select(gene) %>%
+	write_clip()
+
 ## on Caulobacter
-## https://version-11-5.string-db.org/cgi/network?networkId=bOEFxWYpUzvy
-genomes_pom_Eco_on_Ccr <- genomes_pom_Eco %>%
-	inner_join(genomes_presence) %>% 
-	inner_join(orthos %>% filter(genome == "Caulobacter crescentus"), multiple = "all") %>% select(locus_tag)
+# https://version-11-5.string-db.org/cgi/network?networkId=bS8ooauefqaO
+alphas_eco_shared %>% inner_join(orthos %>% filter(genome == "Caulobacter crescentus"), multiple = "all") %>%
+	select(locus_tag) %>% write_clip()
 
 ## on Zymomonas
-## https://version-11-5.string-db.org/cgi/network?networkId=bcrrXPZjXBlZ
-genomes_pom_Eco_on_Zmo <- genomes_pom_Eco %>%
-	inner_join(genomes_presence) %>% 
-	inner_join(orthos %>% filter(genome == "Zymomonas mobilis"), multiple = "all") %>% select(locus_tag)
+# https://version-11-5.string-db.org/cgi/network?networkId=bBC7ZBZczODY
+alphas_eco_shared %>% inner_join(orthos %>% filter(genome == "Zymomonas mobilis"), multiple = "all") %>%
+	select(locus_tag) %>% 	mutate(locus_tag = gsub("ZMO1_", "", locus_tag)) %>% write_clip()
 
-# Genes that may be in E. coli, may be in Zymomonas, but present in all other alphas
+
+
+
+## Genes that may be in E. coli, but in ALL alphas including Zymomonas
+# on Caulobacter
+# https://version-11-5.string-db.org/cgi/network?networkId=bOEFxWYpUzvy
+alpha_common_on_Ccr <- alpha_common %>%
+	inner_join(orthos %>% filter(genome == "Caulobacter crescentus"), multiple = "all") %>%
+	select(locus_tag)
+
+# on Zymomonas
+# https://version-11-5.string-db.org/cgi/network?networkId=bcrrXPZjXBlZ
+alpha_common_on_Zmo <- alpha_common %>%
+	inner_join(orthos %>% filter(genome == "Zymomonas mobilis"), multiple = "all") %>%
+	select(locus_tag)
+
+## Genes that may be in E. coli, may be in Zymomonas, but present in all other alphas
 # https://version-11-5.string-db.org/cgi/network?networkId=b1UklJYoaHIx
-genomes_pom_Eco_Zmo_on_Ccr <- genomes_pom_Eco_Zmo %>%
-	inner_join(genomes_presence) %>% 
-	inner_join(orthos %>% filter(genome == "Caulobacter crescentus"), multiple = "all") %>% select(locus_tag)
+alpha_common_maybe_Zmo_on_Ccr <- alpha_common_maybe_Zmo %>%
+	inner_join(orthos %>% filter(genome == "Caulobacter crescentus"), multiple = "all") %>%
+	select(locus_tag)
 
-# Genes that may be in E. coli, not in Zymomonas, but are present in all other alphas
+## Genes in all alphas except Zymomonas, maybe in E. coli
 # https://version-11-5.string-db.org/cgi/network?networkId=buYCYUpvXGzW
-genomes_pom_Eco_m_Zmo_on_Ccr <- genomes_pom_Eco_Zmo %>% 
-	anti_join(genomes_pom_Eco) %>% 
-	inner_join(genomes_presence) %>% 
-	inner_join(orthos %>% filter(genome == "Caulobacter crescentus"), multiple = "all") %>% select(locus_tag)
+alpha_common_not_Zmo_on_Ccr <- alpha_common_maybe_Zmo %>% 
+	anti_join(alpha_common) %>% 
+	inner_join(orthos %>% filter(genome == "Caulobacter crescentus"), multiple = "all") %>%
+	select(locus_tag)
+
+## Genes in Zymomonas, maybe E. coli, not other alphas
+# https://version-11-5.string-db.org/cgi/network?networkId=b0tJaZaTX72r
+Zmo_genome %>%
+	anti_join(alpha_union_maybe_Zmo) %>%
+	inner_join(orthos %>% filter(genome == "Zymomonas mobilis"), multiple = "all") %>%
+	select(locus_tag) %>%
+	mutate(locus_tag = gsub("ZMO1_", "", locus_tag)) %>%
+	clipr::write_clip()
+
+## Genes in alphas, maybe Zmo, not E. coli
+# https://version-11-5.string-db.org/cgi/network?networkId=boJkAooCE4nu
+alpha_common_maybe_Zmo %>% 
+	anti_join(Eco_genome) %>% 
+	inner_join(orthos %>% filter(genome == "Caulobacter crescentus"), multiple = "all") %>% 
+	select(locus_tag) %>% clipr::write_clip()
+
+## Genes in alphas, including Zmo, not E. coli
+# on Caulobacter
+# https://version-11-5.string-db.org/cgi/network?networkId=buOIfJpqAKIg
+Alphas_common_not_Eco %>% 
+	inner_join(orthos %>% filter(genome == "Caulobacter crescentus"), multiple = "all") %>% 
+	select(locus_tag) %>% clipr::write_clip()
+
+# on Zymomonas
+# https://version-11-5.string-db.org/cgi/network?networkId=bMJ5kCiTbfrD
+Alphas_common_not_Eco %>% 
+	inner_join(orthos %>% filter(genome == "Zymomonas mobilis"), multiple = "all") %>% 
+	select(locus_tag) %>%
+	mutate(locus_tag = gsub("ZMO1_", "", locus_tag)) %>%
+	clipr::write_clip()
+
+
+
 

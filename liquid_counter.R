@@ -85,9 +85,9 @@ zmo_grid_matrix <- data.matrix(
 row.names(zmo_grid_matrix) <- zmo_grid$spacer
 
 zmo_group <- factor(
-	zmo_design[
-		,
-		paste(verbose, timing, sep = "_")])
+	zmo_design[, paste(verbose, timing, sep = "_")], 
+	levels = unique(
+		zmo_design[, paste(verbose, timing, sep = "_")]))  
 
 zmo_permut <- model.matrix( ~ 0 + zmo_group)
 

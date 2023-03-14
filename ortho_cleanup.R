@@ -419,6 +419,9 @@ genome_sets_stats$genome <- factor(genome_sets_stats$genome, levels = genome_ord
 ##########################################################################################
 # take info from upset plot, but make it simpler and plot
 
+palette <- brewer.pal(10, "Paired")
+my_colors <- palette[c(2, 4, 6, 8, 10)]
+
 genome_sets_stats_plot <- genome_sets_stats %>% 
 	ggplot(aes(fill = set, y = `size`, x = genome)) + 
 	geom_bar(position = "dodge", stat = "identity") +

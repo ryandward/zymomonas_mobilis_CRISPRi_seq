@@ -23,7 +23,7 @@ genome_locus_tags <- fread(
 	header = F, 
 	col.names = c("genome", "locus_tag"))
 
-orthos <- fread("N0.tsv")
+orthos <- fread("N0.tsv.gz")
 
 orthos <- melt(
 	orthos, 
@@ -48,7 +48,7 @@ orthos <- genome_locus_tags %>% full_join(orthos) %>%
 
 orthos[is.na(HOG), HOG := locus_tag]
 
-model_organisms <- c("Escherichia coli BW25113", "Caulobacter crescentus")
+model_organisms <- c("Escherichia coli MG1655", "Caulobacter crescentus")
 
 orthos$genome <- factor(orthos$genome)
 
@@ -77,12 +77,12 @@ alpha_ecoli_orthos_table <-
 	orthos_table %>% 
 	filter(
 		genome %in% c(
-			"Escherichia coli BW25113",
+			"Escherichia coli MG1655",
 			"Caulobacter crescentus",
-			"Agrobacterium fabrum",
+			"Agrobacterium tumefaciens",
 			"Bradyrhizobium diazoefficiens",
 			"Brevundimonas subvibrioides",
-			"Novosphingobium aromaticivorans",
+			# "Novosphingobium aromaticivorans",
 			"Rhodobacter sphaeroides",
 			"Rhodopseudomonas palustris",
 			"Sphingomonas wittichii",
@@ -166,7 +166,7 @@ all_present <- genomes_presence[extract_comb(
 	genomes_presence_combo_distinct, all_present_idx), ]
 
 #All Alphas - E. coli: https://version-11-5.string-db.org/cgi/network?networkId=bzNJgxu0NyeQ 
-all_alphas_only_idx <- extract_idx(all_genomes[!(all_genomes %in% ("Escherichia coli BW25113"))], all_genomes)
+all_alphas_only_idx <- extract_idx(all_genomes[!(all_genomes %in% ("Escherichia coli MG1655"))], all_genomes)
 
 all_alphas_only <- genomes_presence[extract_comb(
 	genomes_presence_combo_distinct, all_alphas_only_idx), ]
@@ -174,72 +174,6 @@ all_alphas_only <- genomes_presence[extract_comb(
 #Zymomonas mobilis only - https://version-11-5.string-db.org/cgi/network?networkId=bDpAcDlAAZj
 Zm_only <- genomes_presence[extract_comb(
 	genomes_presence_combo_distinct, extract_idx("Zymomonas mobilis", all_genomes)), ]
-
-##########################################################################################
-# create a table with info about each genome
-
-genome_sets <- data.table()
-for (i in all_genomes) {
-	
-	genome_sets <- orthos %>% 
-		filter(genome == i) %>% 
-		select(genome, genus, locus_tag) %>% 
-		mutate(set = "All genes") %>%
-		data.table %>% 
-		rbind(genome_sets)
-
-	genome_sets <- all_present %>% 
-		select(HOG) %>% 
-		inner_join(orthos %>% filter(genome == i), multiple = "all") %>% 
-		select(genome, genus, locus_tag) %>% 
-		mutate(set = "Present in all alphas and E. coli") %>% 
-		data.table %>% 
-		rbind(genome_sets)
-	
-	genome_sets <- all_alphas_only %>% 
-		select(HOG) %>% 
-		inner_join(orthos %>% filter(genome == i), multiple = "all") %>% 
-		select(genome, genus, locus_tag) %>% 
-		mutate(set = "Common only to all alphas") %>% 
-		data.table %>% 
-		rbind(genome_sets)
-	
-	genome_sets <-	genomes_presence[extract_comb(
-		genomes_presence_combo_distinct, 
-		extract_idx(i, all_genomes)), ] %>% 		
-		select(HOG) %>%
-		inner_join(orthos %>% filter(genome == i), multiple = "all") %>% 
-		select(genome, genus, locus_tag) %>%
-		mutate(set = "Unique to genome") %>% 
-		data.table %>% 
-		rbind(genome_sets)
-}
-
-genome_sets$genome <- factor(genome_sets$genome, levels = genome_order)
-
-genome_sets_stats <- genome_sets %>% 
-	group_by(genome, set) %>% 
-	summarise(size = n()) %>% 
-	data.table %>% 
-	dcast(genome ~ set, value.var = "size", fill = 0) %>%
-	melt(id.vars = "genome", value.name = "size", variable.name = "set")
-
-genome_sets_stats$genome <- factor(genome_sets_stats$genome, levels = genome_order)
-
-##########################################################################################
-# take info from upset plot, but make it simpler and plot
-
-palette <- brewer.pal(8, "Paired")
-my_colors <- palette[c(2, 4, 6, 8)]
-
-genome_sets_stats_plot <- genome_sets_stats %>% 
-	ggplot(aes(fill = set, y = `size`, x = genome)) + 
-	geom_bar(position = "dodge", stat = "identity") +
-	doc_theme +
-	theme(axis.text.x = element_text(angle = 45, hjust = 1)) +
-	scale_fill_manual(values = my_colors)
-
-print(genome_sets_stats_plot)
 
 ##########################################################################################
 # Hard questions, these are answered using "intersect" and "union" combo matrices.
@@ -266,7 +200,7 @@ Zmo_genome <- lookup_idx(
 	data.table(HOG = .) %>% 
 	arrange(HOG)
 
-Eco_idx <- extract_idx("Escherichia coli BW25113", all_genomes)
+Eco_idx <- extract_idx("Escherichia coli MG1655", all_genomes)
 
 Eco_genome <- lookup_idx(
 	genomes_presence, 
@@ -276,11 +210,19 @@ Eco_genome <- lookup_idx(
 	data.table(HOG = .) %>% 
 	arrange(HOG)
 
-Alphas_idx <- extract_idx(all_genomes[!(all_genomes %in% ("Escherichia coli BW25113"))], all_genomes)
+alpha_idx <- extract_idx(all_genomes[!(all_genomes %in% ("Escherichia coli MG1655"))], all_genomes)
 
-Alphas_common_not_Eco <- lookup_idx(
+alpha_common_not_Eco <- lookup_idx(
 	genomes_presence, 
-	Alphas_idx, 
+	alpha_idx, 
+	genomes_presence_combo_distinct) %>% 
+	droplevels %>% 
+	data.table(HOG = .) %>% 
+	arrange(HOG)
+
+alpha_common_not_Eco <- lookup_idx(
+	genomes_presence, 
+	alpha_idx, 
 	genomes_presence_combo_distinct) %>% 
 	droplevels %>% 
 	data.table(HOG = .) %>% 
@@ -291,7 +233,7 @@ Alphas_common_not_Eco <- lookup_idx(
 # and may be in E. coli # Generate an index that corresponds to everything m
 # (minus) E. coli
 all_alphas_idx <- extract_idx(
-	all_genomes[!(all_genomes %in% (c("Escherichia coli BW25113")))], 
+	all_genomes[!(all_genomes %in% (c("Escherichia coli MG1655")))], 
 	all_genomes)
 
 # alpha_common_p_Zmo_m_all <- 
@@ -315,7 +257,7 @@ alpha_union <- lookup_idx(
 
 # Now we don't care about E. coli or Zymomonas
 # Find index
-alpha_not_Zmo_idx <- extract_idx(all_genomes[!(all_genomes %in% (c("Escherichia coli BW25113", "Zymomonas mobilis")))], all_genomes)
+alpha_not_Zmo_idx <- extract_idx(all_genomes[!(all_genomes %in% (c("Escherichia coli MG1655", "Zymomonas mobilis")))], all_genomes)
 
 alpha_common_maybe_Zmo <- lookup_idx(
 	genomes_presence, 
@@ -343,13 +285,13 @@ alpha_not_Zmo_not_Eco <- lookup_idx(
 
 ### Genes shared by all Alphas and E. coli
 ## on E. coli
-# https://version-11-5.string-db.org/cgi/network?networkId=bml1LlWvnUED
-alphas_eco_shared %>% inner_join(orthos %>% filter(genome == "Escherichia coli BW25113"), multiple = "all") %>%
-	select(locus_tag) %>% inner_join(ecoli_genes) %>% select(gene) %>%
+# https://version-11-5.string-db.org/cgi/network?networkId=bimTKSMJNxZr
+alphas_eco_shared %>% inner_join(orthos %>% filter(genome == "Escherichia coli MG1655"), multiple = "all") %>%
+	select(locus_tag) %>%
 	write_clip()
 
 ## on Caulobacter
-# https://version-11-5.string-db.org/cgi/network?networkId=bS8ooauefqaO
+# https://version-11-5.string-db.org/cgi/network?networkId=bRkOK1up149s
 alphas_eco_shared %>% inner_join(orthos %>% filter(genome == "Caulobacter crescentus"), multiple = "all") %>%
 	select(locus_tag) %>% write_clip()
 
@@ -357,9 +299,6 @@ alphas_eco_shared %>% inner_join(orthos %>% filter(genome == "Caulobacter cresce
 # https://version-11-5.string-db.org/cgi/network?networkId=bBC7ZBZczODY
 alphas_eco_shared %>% inner_join(orthos %>% filter(genome == "Zymomonas mobilis"), multiple = "all") %>%
 	select(locus_tag) %>% 	mutate(locus_tag = gsub("ZMO1_", "", locus_tag)) %>% write_clip()
-
-
-
 
 ## Genes that may be in E. coli, but in ALL alphas including Zymomonas
 # on Caulobacter
@@ -406,18 +345,96 @@ alpha_common_maybe_Zmo %>%
 ## Genes in alphas, including Zmo, not E. coli
 # on Caulobacter
 # https://version-11-5.string-db.org/cgi/network?networkId=buOIfJpqAKIg
-Alphas_common_not_Eco %>% 
+alpha_common_not_Eco %>% 
 	inner_join(orthos %>% filter(genome == "Caulobacter crescentus"), multiple = "all") %>% 
 	select(locus_tag) %>% clipr::write_clip()
 
 # on Zymomonas
 # https://version-11-5.string-db.org/cgi/network?networkId=bMJ5kCiTbfrD
-Alphas_common_not_Eco %>% 
+alpha_common_not_Eco %>% 
 	inner_join(orthos %>% filter(genome == "Zymomonas mobilis"), multiple = "all") %>% 
 	select(locus_tag) %>%
 	mutate(locus_tag = gsub("ZMO1_", "", locus_tag)) %>%
 	clipr::write_clip()
 
 
+##########################################################################################
+# create a table with info about each genome
 
+genome_sets <- data.table()
+for (i in all_genomes) {
+	
+	genome_sets <- orthos %>% 
+		filter(genome == i) %>% 
+		select(genome, genus, locus_tag) %>% 
+		mutate(set = "All genes") %>%
+		data.table %>% 
+		rbind(genome_sets)
+	
+	genome_sets <- alphas_eco_shared %>%
+		inner_join(orthos %>% filter(genome == i), multiple = "all") %>% 
+		select(genome, genus, locus_tag) %>% 
+		mutate(set = "Common in all genomes") %>% 
+		data.table %>% 
+		rbind(genome_sets)
+	
+	genome_sets <- alpha_common_maybe_Zmo %>% 
+		anti_join(Eco_genome) %>%
+		inner_join(orthos %>% filter(genome == i), multiple = "all") %>% 
+		select(genome, genus, locus_tag) %>% 
+		mutate(set = "Common exclusively to alphas (maybe Zmo)") %>% 
+		data.table %>% 
+		rbind(genome_sets)
+	
+	genome_sets <- alpha_common_not_Eco %>% 
+		inner_join(orthos %>% filter(genome == i), multiple = "all") %>% 
+		select(genome, genus, locus_tag) %>% 
+		mutate(set = "Common exclusively to alphas") %>% 
+		data.table %>% 
+		rbind(genome_sets)
+	
+	genome_sets <-	genomes_presence[extract_comb(
+		genomes_presence_combo_distinct, 
+		extract_idx(i, all_genomes)), ] %>% 		
+		select(HOG) %>%
+		inner_join(orthos %>% filter(genome == i), multiple = "all") %>% 
+		select(genome, genus, locus_tag) %>%
+		mutate(set = "Unique among genomes") %>% 
+		data.table %>% 
+		rbind(genome_sets)
+}
+
+genome_sets$genome <- factor(genome_sets$genome, levels = genome_order)
+# genome_sets$set <- factor(genome_sets$set, levels = rev(genome_order)
+
+genome_sets_stats <- genome_sets %>% 
+	group_by(genome, set) %>% 
+	summarise(size = n()) %>% 
+	data.table %>% 
+	dcast(genome ~ set, value.var = "size", fill = 0) %>%
+	melt(id.vars = "genome", value.name = "size", variable.name = "set")
+
+genome_sets_stats$genome <- factor(genome_sets_stats$genome, levels = genome_order)
+
+##########################################################################################
+# take info from upset plot, but make it simpler and plot
+
+genome_sets_stats_plot <- genome_sets_stats %>% 
+	ggplot(aes(fill = set, y = `size`, x = genome)) + 
+	geom_bar(position = "dodge", stat = "identity") +
+	geom_text(
+		aes(label = `size`, x = genome, y = 1 * `size`, group = set),
+		position = position_dodge(width = 0.9), vjust = -0.5, angle = 45,
+		hjust = -0.1, size = 3, fontface = "bold", color = "black") +
+	scale_fill_manual(values = my_colors) +
+	theme_minimal() +
+	theme(axis.text.x = element_text(angle = 45, hjust = 1),
+				legend.position = "top") +
+	labs(x = NULL, y = "Size") +
+	guides(fill = guide_legend(nrow = 1))
+
+print(genome_sets_stats_plot)
+
+
+##########################################################################################
 

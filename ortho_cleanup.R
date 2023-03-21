@@ -60,9 +60,19 @@ orthos_summary <- orthos %>%
 	group_by(HOG, OG, `Gene Tree Parent Clade`, genus, genome) %>% 
 	summarise(N = n()) 
 
-essential_orthos <- orthos %>% 
-	inner_join(essentials %>% select(locus_tag), by = "locus_tag", multiple = "all") %>% 
-	select(HOG) %>% unique %>% mutate(essential = TRUE)
+# essential_orthos <- orthos %>% 
+# 	inner_join(essentials %>% select(locus_tag), by = "locus_tag", multiple = "all") %>% 
+# 	select(HOG) %>% unique %>% mutate(essential = TRUE)
+
+essential_orthos <- 
+	essentials %>% 
+	select(locus_tag) %>% 
+	inner_join(orthos) %>% 
+	group_by(genome, HOG) %>% 
+	tally(name = "essential_inparas") %>% 
+	ungroup %>% 
+	group_by(HOG) %>% 
+	summarise(essential_in_genomes = n(), essential_orthos = sum(essential_inparas))
 
 orthos_summary <- orthos_summary %>% left_join(essential_orthos, multiple = "all") %>% data.table
 
@@ -114,9 +124,9 @@ alpha_ecoli_orthos_table <- alpha_ecoli_orthos_table %>%
 # 	doc_theme
 
 
-essential_orthos_summary <- orthos %>% 
-	inner_join(essentials %>% select(locus_tag), by = "locus_tag", multiple = "all") %>% 
-	group_by(genome, HOG) %>% tally(name = "essential_ortho_count")
+# essential_orthos_summary <- orthos %>% 
+# 	inner_join(essentials %>% select(locus_tag), by = "locus_tag", multiple = "all") %>% 
+# 	group_by(genome, HOG) %>% tally(name = "essential_ortho_count")
 
 ##########################################################################################
 
@@ -371,27 +381,27 @@ for (i in all_genomes) {
 		data.table %>% 
 		rbind(genome_sets)
 	
-	genome_sets <- alphas_eco_shared %>%
-		inner_join(orthos %>% filter(genome == i), multiple = "all") %>% 
-		select(genome, genus, locus_tag) %>% 
-		mutate(set = "Common in all genomes") %>% 
-		data.table %>% 
-		rbind(genome_sets)
-	
 	genome_sets <- alpha_common_maybe_Zmo %>% 
-		anti_join(Eco_genome) %>%
 		inner_join(orthos %>% filter(genome == i), multiple = "all") %>% 
 		select(genome, genus, locus_tag) %>% 
-		mutate(set = "Common exclusively to alphas (maybe Zmo)") %>% 
+		mutate(set = "Common to alphas (maybe Eco, Maybe Zmo)") %>% 
 		data.table %>% 
 		rbind(genome_sets)
 	
-	genome_sets <- alpha_common_not_Eco %>% 
-		inner_join(orthos %>% filter(genome == i), multiple = "all") %>% 
-		select(genome, genus, locus_tag) %>% 
-		mutate(set = "Common exclusively to alphas") %>% 
-		data.table %>% 
-		rbind(genome_sets)
+	# genome_sets <- alpha_common_maybe_Zmo %>% 
+	# 	anti_join(Eco_genome) %>%
+	# 	inner_join(orthos %>% filter(genome == i), multiple = "all") %>% 
+	# 	select(genome, genus, locus_tag) %>% 
+	# 	mutate(set = "Common exclusively to alphas (maybe Zmo)") %>% 
+	# 	data.table %>% 
+	# 	rbind(genome_sets)
+	
+	# genome_sets <- alpha_common_not_Eco %>% 
+	# 	inner_join(orthos %>% filter(genome == i), multiple = "all") %>% 
+	# 	select(genome, genus, locus_tag) %>% 
+	# 	mutate(set = "Common exclusively to alphas") %>% 
+	# 	data.table %>% 
+	# 	rbind(genome_sets)
 	
 	genome_sets <-	genomes_presence[extract_comb(
 		genomes_presence_combo_distinct, 
@@ -420,7 +430,7 @@ genome_sets_stats$genome <- factor(genome_sets_stats$genome, levels = genome_ord
 # take info from upset plot, but make it simpler and plot
 
 palette <- brewer.pal(10, "Paired")
-my_colors <- palette[c(2, 4, 6, 8, 10)]
+my_colors <- palette[c(2, 4, 8)]
 
 genome_sets_stats_plot <- genome_sets_stats %>% 
 	ggplot(aes(fill = set, y = `size`, x = genome)) + 

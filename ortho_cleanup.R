@@ -16,7 +16,11 @@ doc_theme <- theme_ipsum(
 essentials <- fread(
 	"Essentials.tsv", 
 	header = F, 
-	col.names = c("genome", "locus_tag"))
+	col.names = c("genome", "locus_tag")) %>%
+	unique
+
+e_coli_essentials <- fread("ecoli_transit_data.tsv", header = T) %>% 
+	select(locus_tag, genome, essential) %>% mutate(genome = "Escherichia_coli_BW25113")
 
 genome_locus_tags <- fread(
 	"genome_locus_tags.tsv.gz", 
@@ -60,6 +64,20 @@ orthos_summary <- orthos %>%
 	group_by(HOG, OG, `Gene Tree Parent Clade`, genus, genome) %>% 
 	summarise(N = n()) 
 
+# print out the number of essential genes we look at here.
+genome_locus_tags %>% 
+	left_join(essentials %>% mutate(essential = TRUE) %>% 
+							rbind(e_coli_essentials)) %>% 
+	mutate(essential = case_when(essential == TRUE ~ TRUE, TRUE ~ FALSE)) %>% 
+	select(genome, essential) %>% 
+	table %>% 
+	data.table() %>% 
+	dcast(genome ~ essential, value.var = "N") %>% 
+	filter(`TRUE` > 0) %>% 
+	mutate(total = `TRUE`+ `FALSE`) %>%
+	mutate(pct_essential = 100*`TRUE`/total) %>% select(-`FALSE`) %>% 
+	rename(essential_count = `TRUE`) 
+
 # essential_orthos <- orthos %>% 
 # 	inner_join(essentials %>% select(locus_tag), by = "locus_tag", multiple = "all") %>% 
 # 	select(HOG) %>% unique %>% mutate(essential = TRUE)
@@ -72,11 +90,12 @@ essential_orthos <-
 	tally(name = "essential_inparas") %>% 
 	ungroup %>% 
 	group_by(HOG) %>% 
-	summarise(essential_in_genomes = n(), essential_orthos = sum(essential_inparas))
+	summarise(essential_in_genomes = n(), essential_orthos = sum(essential_inparas)) %>%
+	mutate(essential = TRUE)
 
 orthos_summary <- orthos_summary %>% left_join(essential_orthos, multiple = "all") %>% data.table
 
-orthos_summary[is.na(essential), essential := FALSE]
+orthos_summary[is.na(essential_orthos), essential := FALSE]
 
 orthos_table <- orthos_summary %>% 
 	data.table %>% 

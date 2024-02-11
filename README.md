@@ -12,5 +12,6 @@ We are developing and applying a novel analytical framework that integrates Limm
 This repository not only supports the reproducibility of our published work but also acts as a dynamic platform for sharing our ongoing research advancements.
 
 ## New additions:
-- * Leveraging Camera (from Limma) and Voom for normalization, alongside ggplot2 for violin and sina plots, to assess relative shifts in *Zymomonas mobilis* CRISPRi library composition, integrating [STRINGdb](https://string-db.org) for enriched gene interaction analysis. [Limma-Voom](https://bioconductor.org/packages/release/bioc/html/limma.html). *See* [this script](https://github.com/ryandward/zymomonas_mobilis_CRISPRi_seq/blob/main/enrichment_tests.r)
+- Leveraging Camera (from Limma) and Voom for normalization, alongside ggplot2 for violin and sina plots, to assess relative shifts in *Zymomonas mobilis* CRISPRi library composition, integrating [STRINGdb](https://string-db.org) for enriched gene interaction analysis. [Limma-Voom](https://bioconductor.org/packages/release/bioc/html/limma.html). *See* [this script](https://github.com/ryandward/zymomonas_mobilis_CRISPRi_seq/blob/main/enrichment_tests.r)
+  
   ![image](https://github.com/ryandward/zymomonas_mobilis_CRISPRi_seq/assets/6970996/b51c7c8a-793d-4c98-ab31-bcba984f8215)

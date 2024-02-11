@@ -5,7 +5,7 @@ This repository encompasses the core work presented in [Genetics of Aerotolerant
 ## Ongoing Research and Novel Techniques
 We are developing and applying a novel analytical framework that integrates Limma-voom with STRING database insights and machine learning techniques. This innovative approach is designed to enhance gene set enrichment analysis by examining the effects of gene knockdowns in competition assays. Our aim is to refine the understanding of gene function and interaction networks within *Zymomonas mobilis*.
 
-- **Limma-voom Integration**: Utilizes for robust normalization and differential expression analysis, preparing the data for deeper exploration.
+- **Limma-voom Integration**: Utilizes for robust normalization and differential fitness analysis, preparing the data for deeper exploration.
 - **STRING Database Analysis**: Employs for mapping gene interactions and networks, providing a context for the observed changes.
 - **Machine Learning Algorithms**: Applied to identify patterns and predict outcomes from complex datasets, focusing on gene set enrichment and interaction effects.
 
